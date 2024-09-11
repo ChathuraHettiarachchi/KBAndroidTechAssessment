@@ -4,15 +4,20 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -23,22 +28,37 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.TextUnitType
 import androidx.compose.ui.unit.dp
-import com.example.kbandroidtechassessment.data.getTransactions
 import com.example.kbandroidtechassessment.models.Transaction
+import com.example.kbandroidtechassessment.ui.shared.DateRangePicker
+import com.example.kbandroidtechassessment.ui.theme.Grey
 import com.example.kbandroidtechassessment.ui.theme.KBAndroidTechAssessmentTheme
 
+@OptIn(ExperimentalMaterial3Api::class)
 class MainActivity : ComponentActivity() {
-    @OptIn(ExperimentalMaterial3Api::class)
+
+    private val viewModel: MainViewModel by viewModels()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            var showDatePicker by remember { mutableStateOf(false) }
+            val transactions by viewModel.filteredTransactions.collectAsState()
+            val availableAmount by viewModel.availableAmount.collectAsState()
+            val selectedDateRange by viewModel.selectedDateRange.collectAsState()
+
             KBAndroidTechAssessmentTheme {
                 Scaffold(modifier = Modifier.fillMaxSize(),
                     topBar = {
@@ -47,7 +67,9 @@ class MainActivity : ComponentActivity() {
                                 Text("Travel Savings Account")
                             },
                             actions = {
-                                IconButton(onClick = { /* Handle filter action */ }) {
+                                IconButton(onClick = {
+                                    showDatePicker = true
+                                }) {
                                     Icon(
                                         imageVector = Icons.Default.DateRange,
                                         contentDescription = "Filter"
@@ -65,19 +87,54 @@ class MainActivity : ComponentActivity() {
                                 fontSize = TextUnit(16f, TextUnitType.Sp),
                             )
                             Text(
-                                text = "$0.00",
+                                text = "$$availableAmount",
                                 fontWeight = FontWeight.W600,
                                 fontSize = TextUnit(24f, TextUnitType.Sp),
                             )
                         }
-                        HorizontalDivider()
-                        val transactions = getTransactions()
+                        if (selectedDateRange != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(color = Grey)
+                                    .padding(start = 16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Filter applied: ${selectedDateRange!!.first} - ${selectedDateRange!!.second}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = Color.White,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterVertically)
+                                )
+                                IconButton(onClick = {
+                                    viewModel.clearDateRange()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        tint = Color.White,
+                                        contentDescription = "Clear Filter"
+                                    )
+                                }
+                            }
+                        } else {
+                            HorizontalDivider()
+                        }
                         LazyColumn {
                             items(transactions) { transaction ->
                                 TransactionItem(transaction = transaction)
                             }
                         }
                     }
+                    DateRangePicker(
+                        showDatePicker = showDatePicker,
+                        onDismiss = { showDatePicker = false },
+                        onDateRangeSelected = { startDate, endDate ->
+                            viewModel.setDateRange(startDate, endDate)
+                            showDatePicker = false
+                        },
+                        initialDateRange = selectedDateRange
+                    )
                 }
             }
         }
